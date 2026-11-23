@@ -1,5 +1,5 @@
 {
-  "name": "@local/dsh-cowrite",
+  "name": "dsh-cowrite",
   "version": "1.0.0",
   "type": "module",
   "description": "Markdown co-writing editor tab in the DSH right sidebar: live-editable document, instant save to the workspace, and automatic reload when the agent writes the same file.",

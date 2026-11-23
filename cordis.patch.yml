@@ -7,4 +7,4 @@
 # mismatch silently drops the browser half.
 - insert:
     - id: cowrite
-      name: "@local/dsh-cowrite"
+      name: "dsh-cowrite"
