@@ -7488,7 +7488,9 @@ kbd {
                 'desktop:linux': { code: 'KeyM', modifiers: ['primary', 'shift'] },
                 'web:macos': { code: 'KeyM', modifiers: ['primary', 'shift'] },
                 'web:windows': { code: 'KeyM', modifiers: ['primary', 'shift'] },
-                'web:linux': { code: 'KeyM', modifiers: ['primary', 'shift'] },
+                // Web on Linux admits only a tiny set (Slash, Comma+Shift,
+                // Period+Shift); registering KeyM there throws and takes the
+                // whole shortcut down, so Linux Web gets no default binding.
               },
               regions: ['page', 'editable', 'terminal'],
               modals: [],
