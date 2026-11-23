@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Co-writing Editor",
+    "description": "Edit a workspace Markdown file right in the right sidebar: typing saves, and Agent writes to the same file reload it or raise a conflict."
+  }
+}

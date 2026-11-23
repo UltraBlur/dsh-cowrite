@@ -1,0 +1,10 @@
+# Insert the co-writing document plugin: one right-sidebar tab type ("共写")
+# whose body is a live Markdown editor over a workspace file, plus the host
+# route that reads and writes that file on the client's behalf.
+#
+# The loader row name MUST equal package.json `name`: the client-module scan
+# matches the nearest manifest name against the loader specifier, and a
+# mismatch silently drops the browser half.
+- insert:
+    - id: cowrite
+      name: "@local/dsh-cowrite"
