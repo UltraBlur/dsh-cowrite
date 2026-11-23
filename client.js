@@ -9,7 +9,9 @@
  * which version to keep.
  */
 window.__ModuleLoader__.load({
-  id: '@local/dsh-cowrite',
+  // Must equal package.json `name`: the loader registers this id and the
+  // client-modules scan looks it up by the loader row's specifier.
+  id: 'dsh-cowrite',
   factory(require) {
     const React = require('react')
     const h = React.createElement
