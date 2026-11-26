@@ -1,6 +1,6 @@
 {
   "name": "dsh-cowrite",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "description": "Markdown co-writing editor tab in the DSH right sidebar: live-editable document, instant save to the workspace, and automatic reload when the agent writes the same file.",
   "author": "UltraBlur",
@@ -34,7 +34,7 @@
       ]
     },
     "engines": {
-      "dsh": ">=2.0.0"
+      "dsh": ">=0.2.3"
     }
   },
   "license": "MIT",

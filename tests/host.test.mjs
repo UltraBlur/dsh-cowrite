@@ -278,6 +278,79 @@ check('image route reports a missing file', imageMissing.statusCode === 404 && i
 const head = await rawRequest(`/api/dsh-cowrite/raw?root=${encodeURIComponent(ROOT)}&path=pic.png`, { method: 'HEAD' })
 check('image route answers HEAD without a body', head.statusCode === 200 && head.text() === '', head.text())
 
+// ---- platform admission (`connection.requestRejection`) ----
+// A second composition that DOES expose the connection service, so the
+// platform's own fence is exercised instead of the local fallback.
+const seen = []
+const admittedRoutes = {}
+const admittedCtx = {
+  get: (name) => {
+    if (name === 'connection') {
+      return {
+        requestRejection(req) {
+          seen.push(req.url ?? '')
+          // Reject anything without the platform's login cookie, the way the
+          // real service gates on it.
+          return String(req.headers.cookie ?? '').includes('dsh-session=') ? undefined : 401
+        },
+      }
+    }
+    return fakes[name]
+  },
+  effect(fn) {
+    const dispose = fn()
+    return () => {
+      if (typeof dispose === 'function') dispose()
+    }
+  },
+}
+apply(admittedCtx)
+for (const path of ['/api/dsh-cowrite', '/api/dsh-cowrite/raw', '/api/dsh-cowrite/upload']) {
+  admittedRoutes[path] = routes[path]
+}
+check(
+  'every route still registers with a connection service present',
+  Object.keys(admittedRoutes).every((path) => admittedRoutes[path] !== undefined),
+  Object.keys(admittedRoutes),
+)
+
+const callThrough = (path, payload, headers) =>
+  new Promise((resolve) => {
+    const req = new EventEmitter()
+    req.url = path
+    req.method = 'POST'
+    req.headers = { 'content-type': 'application/json', ...headers }
+    const chunks = []
+    const res = {
+      statusCode: 200,
+      setHeader() {},
+      end(text) {
+        chunks.push(text ?? '')
+        resolve({ status: res.statusCode, body: chunks.join('') })
+      },
+    }
+    admittedRoutes[path].handler(req, res)
+    req.emit('data', Buffer.from(JSON.stringify(payload), 'utf8'))
+    req.emit('end')
+  })
+
+const denied = await callThrough('/api/dsh-cowrite', { action: 'list', sessionId: 's1', root: ROOT }, {})
+check('an unadmitted request is refused by the platform', denied.status === 401, denied.status)
+check('the platform decision is consulted first', seen.length >= 1, seen)
+const allowed = await callThrough(
+  '/api/dsh-cowrite',
+  { action: 'list', sessionId: 's1', root: ROOT },
+  { cookie: 'dsh-session=abc' },
+)
+check('an admitted request goes through', allowed.status === 200 && allowed.body.includes('notes.txt'), allowed.body.slice(0, 80))
+check(
+  'the local cookie pattern is not re-checked once the platform decides',
+  allowed.status === 200,
+  allowed.status,
+)
+const deniedUpload = await callThrough('/api/dsh-cowrite/upload', { path: 'assets/x.png', data: 'AAAA' }, {})
+check('the upload route is gated by the platform too', deniedUpload.status === 401, deniedUpload.status)
+
 const failedLate = checks.filter((c) => !c.ok)
 console.log(`\n${checks.length - failedLate.length}/${checks.length} checks passed`)
 process.exit(failedLate.length === 0 ? 0 : 1)

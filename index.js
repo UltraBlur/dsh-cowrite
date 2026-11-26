@@ -295,14 +295,61 @@ function imageType(absolute) {
 }
 
 /**
- * Whether the request comes from a page this Host admitted: the Web carrier
- * hands every browser session an `dsh-auth-*` cookie, and a request without
- * one is a local process rather than the GUI.
+ * Whether the request comes from a page this Host admitted. The Web carrier
+ * hands every browser session a `dsh-auth-*` cookie, and a request without one
+ * is a local process rather than the GUI. This is the fallback used only when
+ * the composition exposes no `connection` service; otherwise the platform's own
+ * admission does the work.
  * @param req - the incoming request.
  * @returns `true` for a browser session.
  */
 function isTrustedRequest(req) {
   return /(?:^|;\s*)dsh-auth-[^=]+=/.test(String(req.headers.cookie ?? ''))
+}
+
+/**
+ * Ask the composition's `connection` service whether this request is admitted.
+ * It owns the Host/Origin fence (DNS rebinding, cross-site calls) and the
+ * login-cookie gate, so a route that asks it needs no second opinion.
+ * @param ctx - host context.
+ * @param req - the incoming request.
+ * @returns `undefined` when admitted or when the service is absent, else the
+ *   status code to answer with.
+ */
+function admissionStatus(ctx, req) {
+  const connection = typeof ctx.get === 'function' ? ctx.get('connection') : undefined
+  if (connection === undefined || connection === null) return undefined
+  if (typeof connection.requestRejection !== 'function') return undefined
+  return connection.requestRejection(req)
+}
+
+/**
+ * Answer a request the platform rejects.
+ * @param ctx - host context.
+ * @param req - the incoming request.
+ * @param res - the response to close.
+ * @returns `true` when the request was answered and the handler must stop.
+ */
+function rejectUnauthorized(ctx, req, res) {
+  const status = admissionStatus(ctx, req)
+  if (status !== undefined) {
+    res.statusCode = status
+    try {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8')
+      res.setHeader('Cache-Control', 'no-store')
+      res.end(JSON.stringify({ ok: false, code: 'unauthorized' }))
+    } catch {
+      res.end()
+    }
+    return true
+  }
+  // No platform admission available: keep the local fence as a fallback.
+  if (typeof ctx.get === 'function' && ctx.get('connection') !== undefined) return false
+  if (!isTrustedRequest(req)) {
+    sendJson(res, 401, { ok: false, code: 'unauthorized' })
+    return true
+  }
+  return false
 }
 
 /** Send one JSON envelope. */
@@ -360,10 +407,7 @@ export function apply(ctx) {
    */
   const uploadHandler = async (req, res) => {
     try {
-      if (!isTrustedRequest(req)) {
-        sendJson(res, 401, { ok: false, code: 'unauthorized' })
-        return
-      }
+      if (rejectUnauthorized(ctx, req, res)) return
       if (req.method !== 'POST') {
         sendJson(res, 405, { ok: false, code: 'method-not-allowed' })
         return
@@ -429,10 +473,7 @@ export function apply(ctx) {
   const rawHandler = async (req, res) => {
     let streaming = false
     try {
-      if (!isTrustedRequest(req)) {
-        sendJson(res, 401, { ok: false, code: 'unauthorized' })
-        return
-      }
+      if (rejectUnauthorized(ctx, req, res)) return
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         sendJson(res, 405, { ok: false, code: 'method-not-allowed' })
         return
@@ -498,10 +539,7 @@ export function apply(ctx) {
 
     const handler = async (req, res) => {
       try {
-        if (!isTrustedRequest(req)) {
-          sendJson(res, 401, { ok: false, code: 'unauthorized' })
-          return
-        }
+        if (rejectUnauthorized(ctx, req, res)) return
         if (req.method !== 'POST') {
           sendJson(res, 405, { ok: false, code: 'method-not-allowed' })
           return

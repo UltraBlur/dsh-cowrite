@@ -1,5 +1,13 @@
 # 更新日志
 
+## 1.0.3
+
+- 安全：三条 HTTP 路由改为先问组合根的 `connection.requestRejection`——它自带 Host/Origin 围栏
+  （防 DNS rebinding 与跨站调用）和登录 cookie 门禁，取代此前自带的 `dsh-auth-*` 正则判断。
+  服务不存在时仍回退到原来的本地围栏，因此旧宿主照常工作。
+- `dsh.engines.dsh` 收为 `>=0.2.3`：`requestRejection` 是那个版本之后才有的接口。
+- 这两点来自 awesome-dsh-plugin 的维护者在 PR #18659 复核源码时的意见。
+
 ## 1.0.2
 
 - 修复：Web 版 Linux 的默认快捷键被 DSH 注册表拒绝（该平台只放行 `Slash`、`Comma+Shift`、`Period+Shift`），
